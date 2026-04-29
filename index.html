@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiniCard Link Manager</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="app">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>MiniCard</h2>
+          <button id="add-btn" class="primary-btn" title="Add new link">+</button>
+        </div>
+
+        <div class="sidebar-section">
+          <input type="text" id="search-input" placeholder="Search links..." class="glass-input" />
+        </div>
+
+        <div class="sidebar-section action-section">
+            <button id="export-btn" class="secondary-btn">Export Data</button>
+            <label for="import-input" id="import-btn" class="secondary-btn">Import Data</label>
+            <input type="file" id="import-input" accept=".json" style="display: none;" />
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Sort By</h3>
+          <select id="sort-select" class="glass-input">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="a-z">Title (A-Z)</option>
+            <option value="z-a">Title (Z-A)</option>
+          </select>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3>Tags Filter</h3>
+          </div>
+          <div id="tags-filter-container" class="tags-container">
+            <!-- Tags will be dynamically injected here -->
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <header class="main-header">
+          <h1>Your Collection</h1>
+          <span id="item-count" class="badge">0 cards</span>
+        </header>
+
+        <div class="cards-grid" id="cards-grid">
+          <!-- Cards will be injected here -->
+        </div>
+      </main>
+
+      <!-- Modal -->
+      <div id="entry-modal" class="modal-overlay hidden">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 id="modal-title">Add New Link</h2>
+            <button id="close-modal" class="icon-btn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form id="link-form">
+              <input type="hidden" id="card-id">
+              <div class="form-group">
+                <label for="url">URL</label>
+                <input type="url" id="url" placeholder="https://example.com" class="glass-input">
+              </div>
+              <div class="form-group">
+                <label for="title">Title *</label>
+                <input type="text" id="title" required placeholder="My Awesome Link" class="glass-input">
+              </div>
+              <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" placeholder="A brief description..." class="glass-input"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" placeholder="Personal notes..." class="glass-input"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="tags">Tags (comma separated)</label>
+                <input type="text" id="tags" placeholder="design, dev, inspiration" class="glass-input">
+              </div>
+              <div class="form-group switch-group">
+                <label class="switch">
+                  <input type="checkbox" id="auto-favicon" checked>
+                  <span class="slider round"></span>
+                </label>
+                <label for="auto-favicon" class="switch-label">Auto-fetch Favicon</label>
+              </div>
+              <div class="form-group">
+                <label for="custom-image">Custom Image URL</label>
+                <input type="url" id="custom-image" placeholder="https://example.com/image.png" class="glass-input">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button id="delete-btn" class="danger-btn hidden">Delete</button>
+            <div class="right-actions">
+              <button type="button" id="cancel-btn" class="secondary-btn">Cancel</button>
+              <button type="submit" id="save-btn" form="link-form" class="primary-btn">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Custom Tooltip -->
+      <div id="custom-tooltip" class="custom-tooltip hidden">
+         <div class="tooltip-content">
+             <h4 id="tt-title"></h4>
+             <p id="tt-desc"></p>
+             <div id="tt-notes" class="tt-notes"></div>
+             <div id="tt-tags" class="tags-container"></div>
+         </div>
+      </div>
+
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

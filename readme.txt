@@ -1,0 +1,1 @@
+ C:\Dev\App MiniCard> npm run dev
