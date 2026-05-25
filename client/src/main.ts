@@ -1,5 +1,8 @@
 import './style.css';
 
+// --- Config ---
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 // --- Types ---
 interface LinkItem {
   id: string;
@@ -12,13 +15,69 @@ interface LinkItem {
   createdAt: number;
 }
 
+// --- Auth helpers ---
+function getToken(): string | null {
+  return localStorage.getItem('mc_token');
+}
+
+function setToken(token: string) {
+  localStorage.setItem('mc_token', token);
+}
+
+function clearToken() {
+  localStorage.removeItem('mc_token');
+}
+
+function authHeaders(): HeadersInit {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` };
+}
+
+// --- API ---
+async function apiLogin(username: string, password: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) throw new Error('Invalid credentials');
+  const data = await res.json() as { token: string };
+  return data.token;
+}
+
+async function apiGetLinks(): Promise<LinkItem[]> {
+  const res = await fetch(`${API_BASE}/links`, { headers: authHeaders() });
+  if (res.status === 401) { logout(); return []; }
+  if (!res.ok) throw new Error('Failed to load links');
+  return res.json() as Promise<LinkItem[]>;
+}
+
+async function apiSaveLink(link: LinkItem): Promise<void> {
+  const res = await fetch(`${API_BASE}/links`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(link),
+  });
+  if (res.status === 401) { logout(); return; }
+  if (!res.ok) throw new Error('Failed to save link');
+}
+
+async function apiDeleteLink(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/links/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (res.status === 401) { logout(); return; }
+  if (!res.ok) throw new Error('Failed to delete link');
+}
+
 // --- State ---
 let links: LinkItem[] = [];
 let activeFilters: string[] = [];
 let currentSort: string = 'newest';
 let searchQuery: string = '';
 
-// --- DOM Elements ---
+// --- DOM: App ---
+const appEl = document.getElementById('app') as HTMLElement;
 const cardsGrid = document.getElementById('cards-grid') as HTMLElement;
 const tagsFilterContainer = document.getElementById('tags-filter-container') as HTMLElement;
 const itemCount = document.getElementById('item-count') as HTMLElement;
@@ -28,13 +87,14 @@ const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
 const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
 const importInput = document.getElementById('import-input') as HTMLInputElement;
+const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
 
 // Modal elements
 const modal = document.getElementById('entry-modal') as HTMLElement;
 const modalTitle = document.getElementById('modal-title') as HTMLElement;
 const linkForm = document.getElementById('link-form') as HTMLFormElement;
 const addBtn = document.getElementById('add-btn') as HTMLButtonElement;
-const closeModal = document.getElementById('close-modal') as HTMLButtonElement;
+const closeModalBtn = document.getElementById('close-modal') as HTMLButtonElement;
 const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement;
 
@@ -55,29 +115,68 @@ const ttDesc = document.getElementById('tt-desc') as HTMLElement;
 const ttNotes = document.getElementById('tt-notes') as HTMLElement;
 const ttTags = document.getElementById('tt-tags') as HTMLElement;
 
+// --- DOM: Login ---
+const loginOverlay = document.getElementById('login-overlay') as HTMLElement;
+const loginForm = document.getElementById('login-form') as HTMLFormElement;
+const loginError = document.getElementById('login-error') as HTMLElement;
+const loginUsername = document.getElementById('login-username') as HTMLInputElement;
+const loginPassword = document.getElementById('login-password') as HTMLInputElement;
+
+// --- Login / Logout ---
+function showLogin() {
+  loginOverlay.classList.remove('hidden');
+  appEl.classList.add('blurred');
+}
+
+function hideLogin() {
+  loginOverlay.classList.add('hidden');
+  appEl.classList.remove('blurred');
+  loginError.textContent = '';
+  loginForm.reset();
+}
+
+function logout() {
+  clearToken();
+  links = [];
+  renderCards();
+  showLogin();
+}
+
+async function handleLogin(e: Event) {
+  e.preventDefault();
+  loginError.textContent = '';
+  try {
+    const token = await apiLogin(loginUsername.value, loginPassword.value);
+    setToken(token);
+    hideLogin();
+    await loadData();
+    renderCards();
+    renderTagsFilter();
+  } catch {
+    loginError.textContent = 'Username o password errati';
+  }
+}
+
 // --- Initialization ---
-function init() {
-  loadData();
+async function init() {
   setupEventListeners();
+  if (!getToken()) {
+    showLogin();
+    return;
+  }
+  await loadData();
   renderCards();
   renderTagsFilter();
 }
 
-// --- Local Storage ---
-function loadData() {
-  const data = localStorage.getItem('minicard_links');
-  if (data) {
-    try {
-      links = JSON.parse(data);
-    } catch (e) {
-      console.error('Failed to parse data');
-      links = [];
-    }
+// --- Data ---
+async function loadData() {
+  try {
+    links = await apiGetLinks();
+  } catch (e) {
+    console.error('Failed to load data', e);
+    links = [];
   }
-}
-
-function saveData() {
-  localStorage.setItem('minicard_links', JSON.stringify(links));
 }
 
 // --- Data Operations ---
@@ -86,42 +185,34 @@ function getFaviconUrl(url: string): string {
   try {
     const domain = new URL(url).hostname;
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-  } catch (e) {
+  } catch {
     return 'https://via.placeholder.com/56/1e2130/ffffff?text=Link';
   }
 }
 
-function handleSave(e: Event) {
+async function handleSave(e: Event) {
   e.preventDefault();
-  if (!linkForm.checkValidity()) {
-    linkForm.reportValidity();
-    return;
-  }
+  if (!linkForm.checkValidity()) { linkForm.reportValidity(); return; }
 
   const id = idInput.value || Date.now().toString();
   const url = urlInput.value;
   const title = titleInput.value;
   const description = descInput.value;
   const notes = notesInput.value;
-  const tagsStr = tagsInput.value;
-  
-  const tags = tagsStr.split(',')
-    .map(t => t.trim())
-    .filter(t => t.length > 0);
-
+  const tags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t.length > 0);
   const isAutoFavicon = autoFaviconSwitch.checked;
-  // If editing and auto is off, keep old image, else fetch
+
   let imageUrl = '';
   const existingLink = links.find(l => l.id === id);
-  
+
   if (isAutoFavicon) {
-      imageUrl = getFaviconUrl(url);
+    imageUrl = getFaviconUrl(url);
   } else if (customImageInput.value) {
-      imageUrl = customImageInput.value;
+    imageUrl = customImageInput.value;
   } else if (existingLink) {
-      imageUrl = existingLink.imageUrl;
+    imageUrl = existingLink.imageUrl;
   } else {
-      imageUrl = 'https://via.placeholder.com/56/1e2130/ffffff?text=Link';
+    imageUrl = 'https://via.placeholder.com/56/1e2130/ffffff?text=Link';
   }
 
   const newLink: LinkItem = {
@@ -132,8 +223,10 @@ function handleSave(e: Event) {
     notes,
     tags,
     imageUrl,
-    createdAt: existingLink ? existingLink.createdAt : Date.now()
+    createdAt: existingLink ? existingLink.createdAt : Date.now(),
   };
+
+  await apiSaveLink(newLink);
 
   if (existingLink) {
     links = links.map(l => l.id === id ? newLink : l);
@@ -141,18 +234,17 @@ function handleSave(e: Event) {
     links.push(newLink);
   }
 
-  saveData();
   closeModalHandler();
   renderCards();
   renderTagsFilter();
 }
 
-function handleDelete() {
+async function handleDelete() {
   const id = idInput.value;
   if (!id) return;
-  if (confirm('Are you sure you want to delete this link?')) {
+  if (confirm('Vuoi eliminare questo link?')) {
+    await apiDeleteLink(id);
     links = links.filter(l => l.id !== id);
-    saveData();
     closeModalHandler();
     renderCards();
     renderTagsFilter();
@@ -163,23 +255,20 @@ function handleDelete() {
 function getFilteredAndSortedLinks(): LinkItem[] {
   let result = [...links];
 
-  // Search filter
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    result = result.filter(l => 
-      l.title.toLowerCase().includes(q) || 
-      l.description.toLowerCase().includes(q) || 
+    result = result.filter(l =>
+      l.title.toLowerCase().includes(q) ||
+      l.description.toLowerCase().includes(q) ||
       l.notes.toLowerCase().includes(q) ||
       l.url.toLowerCase().includes(q)
     );
   }
 
-  // Tags filter
   if (activeFilters.length > 0) {
     result = result.filter(l => activeFilters.every(tag => l.tags.includes(tag)));
   }
 
-  // Sorting
   result.sort((a, b) => {
     switch (currentSort) {
       case 'newest': return b.createdAt - a.createdAt;
@@ -199,7 +288,7 @@ function renderCards() {
   itemCount.textContent = `${items.length} cards`;
 
   if (items.length === 0) {
-    cardsGrid.innerHTML = `<div class="empty-state">No links found. Add a new one or clear filters!</div>`;
+    cardsGrid.innerHTML = `<div class="empty-state">Nessun link trovato. Aggiungine uno!</div>`;
     return;
   }
 
@@ -213,15 +302,13 @@ function renderCards() {
     card.innerHTML = `
       <img src="${item.imageUrl}" alt="Icon" class="card-img" onerror="this.src='https://via.placeholder.com/56/1e2130/ffffff?text=Icon'" />
       <div class="card-title" title="${item.title}">${item.title}</div>
-      <button class="card-edit-btn" title="Edit">✎</button>
+      <button class="card-edit-btn" title="Edit">&#9998;</button>
     `;
 
-    // Tooltip logic
     card.addEventListener('mouseenter', (e) => showTooltip(e, item));
     card.addEventListener('mouseleave', hideTooltip);
     card.addEventListener('mousemove', moveTooltip);
 
-    // Edit logic overrides link behavior
     const editBtn = card.querySelector('.card-edit-btn');
     editBtn?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -236,9 +323,9 @@ function renderCards() {
 function renderTagsFilter() {
   const allTags = new Set<string>();
   links.forEach(l => l.tags.forEach(t => allTags.add(t)));
-  
+
   tagsFilterContainer.innerHTML = '';
-  
+
   Array.from(allTags).sort().forEach(tag => {
     const chip = document.createElement('div');
     chip.className = `tag-chip ${activeFilters.includes(tag) ? 'active' : ''}`;
@@ -256,12 +343,12 @@ function renderTagsFilter() {
   });
 }
 
-// --- Tooltip Logic ---
+// --- Tooltip ---
 function showTooltip(e: MouseEvent, item: LinkItem) {
   ttTitle.textContent = item.title;
   ttDesc.textContent = item.description || 'No description';
   ttNotes.textContent = item.notes ? `Note: ${item.notes}` : '';
-  
+
   ttTags.innerHTML = '';
   item.tags.forEach(t => {
     const span = document.createElement('span');
@@ -282,14 +369,9 @@ function moveTooltip(e: MouseEvent) {
   let x = e.clientX + offset;
   let y = e.clientY + offset;
 
-  // bounds check
   const rect = tooltip.getBoundingClientRect();
-  if (x + rect.width > window.innerWidth) {
-    x = e.clientX - rect.width - offset;
-  }
-  if (y + rect.height > window.innerHeight) {
-    y = e.clientY - rect.height - offset;
-  }
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
 
   tooltip.style.left = `${Math.max(0, x)}px`;
   tooltip.style.top = `${Math.max(0, y)}px`;
@@ -300,7 +382,7 @@ function hideTooltip() {
   tooltip.classList.add('hidden');
 }
 
-// --- Modal Logic ---
+// --- Modal ---
 function openAddModal() {
   linkForm.reset();
   idInput.value = '';
@@ -320,10 +402,9 @@ function openEditModal(item: LinkItem) {
   notesInput.value = item.notes;
   tagsInput.value = item.tags.join(', ');
   customImageInput.value = '';
-  
   modalTitle.textContent = 'Edit Link';
   deleteBtn.classList.remove('hidden');
-  autoFaviconSwitch.checked = false; // default to false on edit, unless they want to update it
+  autoFaviconSwitch.checked = false;
   modal.classList.remove('hidden');
 }
 
@@ -343,40 +424,39 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 
-function importData(e: Event) {
+async function importData(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = (event) => {
+  reader.onload = async (event) => {
     try {
-      const imported = JSON.parse(event.target?.result as string);
-      if (Array.isArray(imported)) {
-        links = imported;
-        saveData();
-        renderCards();
-        renderTagsFilter();
-        alert('Data imported successfully!');
-      } else {
-        alert('Invalid data format.');
+      const imported = JSON.parse(event.target?.result as string) as LinkItem[];
+      if (!Array.isArray(imported)) { alert('Formato non valido.'); return; }
+      for (const link of imported) {
+        await apiSaveLink(link);
       }
-    } catch (err) {
-      alert('Error parsing JSON file.');
+      links = await apiGetLinks();
+      renderCards();
+      renderTagsFilter();
+      alert('Dati importati con successo!');
+    } catch {
+      alert('Errore nel file JSON.');
     }
   };
   reader.readAsText(file);
-  (e.target as HTMLInputElement).value = ''; // reset
+  (e.target as HTMLInputElement).value = '';
 }
 
-// --- Event Listeners setup ---
+// --- Event Listeners ---
 function setupEventListeners() {
   addBtn.addEventListener('click', openAddModal);
-  closeModal.addEventListener('click', closeModalHandler);
+  closeModalBtn.addEventListener('click', closeModalHandler);
   cancelBtn.addEventListener('click', closeModalHandler);
   linkForm.addEventListener('submit', handleSave);
   deleteBtn.addEventListener('click', handleDelete);
+  logoutBtn.addEventListener('click', logout);
 
-  // Close modal on click outside
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModalHandler();
   });
@@ -393,7 +473,8 @@ function setupEventListeners() {
 
   exportBtn.addEventListener('click', exportData);
   importInput.addEventListener('change', importData);
+
+  loginForm.addEventListener('submit', handleLogin);
 }
 
-// Run app
 init();

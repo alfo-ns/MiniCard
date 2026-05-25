@@ -549,3 +549,81 @@ input:checked+.slider:before {
   padding: 60px;
   width: 100%;
 }
+/* --- Login Overlay --- */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 12, 20, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.login-overlay.hidden {
+  display: none;
+}
+
+.login-card {
+  background: rgba(20, 22, 33, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-error {
+  color: var(--danger-color);
+  font-size: 13px;
+  min-height: 18px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.login-submit-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+/* --- Sidebar footer --- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: var(--glass-border);
+}
+
+.logout-btn {
+  width: 100%;
+}
+
+/* Blur app when login is shown */
+#app.blurred {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+}

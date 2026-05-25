@@ -1,16 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MiniCard Link Manager</title>
-    <!-- Google Fonts: Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay hidden">
+      <div class="login-card">
+        <h2 class="login-title">MiniCard</h2>
+        <p class="login-subtitle">Accedi per continuare</p>
+        <form id="login-form" autocomplete="on">
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input type="text" id="login-username" class="glass-input" required autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" class="glass-input" required autocomplete="current-password" />
+          </div>
+          <p id="login-error" class="login-error"></p>
+          <button type="submit" class="primary-btn login-submit-btn">Accedi</button>
+        </form>
+      </div>
+    </div>
+
     <div id="app">
       <!-- Sidebar -->
       <aside class="sidebar">
@@ -24,9 +44,9 @@
         </div>
 
         <div class="sidebar-section action-section">
-            <button id="export-btn" class="secondary-btn">Export Data</button>
-            <label for="import-input" id="import-btn" class="secondary-btn">Import Data</label>
-            <input type="file" id="import-input" accept=".json" style="display: none;" />
+          <button id="export-btn" class="secondary-btn">Export Data</button>
+          <label for="import-input" id="import-btn" class="secondary-btn">Import Data</label>
+          <input type="file" id="import-input" accept=".json" style="display: none;" />
         </div>
 
         <div class="sidebar-section">
@@ -43,9 +63,11 @@
           <div class="section-header">
             <h3>Tags Filter</h3>
           </div>
-          <div id="tags-filter-container" class="tags-container">
-            <!-- Tags will be dynamically injected here -->
-          </div>
+          <div id="tags-filter-container" class="tags-container"></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button id="logout-btn" class="secondary-btn logout-btn">Logout</button>
         </div>
       </aside>
 
@@ -55,10 +77,7 @@
           <h1>Your Collection</h1>
           <span id="item-count" class="badge">0 cards</span>
         </header>
-
-        <div class="cards-grid" id="cards-grid">
-          <!-- Cards will be injected here -->
-        </div>
+        <div class="cards-grid" id="cards-grid"></div>
       </main>
 
       <!-- Modal -->
@@ -113,18 +132,18 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Custom Tooltip -->
       <div id="custom-tooltip" class="custom-tooltip hidden">
-         <div class="tooltip-content">
-             <h4 id="tt-title"></h4>
-             <p id="tt-desc"></p>
-             <div id="tt-notes" class="tt-notes"></div>
-             <div id="tt-tags" class="tags-container"></div>
-         </div>
+        <div class="tooltip-content">
+          <h4 id="tt-title"></h4>
+          <p id="tt-desc"></p>
+          <div id="tt-notes" class="tt-notes"></div>
+          <div id="tt-tags" class="tags-container"></div>
+        </div>
       </div>
-
     </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

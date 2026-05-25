@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - minicard_data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  minicard_data:
