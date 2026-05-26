@@ -28,6 +28,10 @@ function clearToken() {
   localStorage.removeItem('mc_token');
 }
 
+function isAdmin(): boolean {
+  return !!getToken();
+}
+
 function authHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` };
 }
@@ -45,8 +49,7 @@ async function apiLogin(username: string, password: string): Promise<string> {
 }
 
 async function apiGetLinks(): Promise<LinkItem[]> {
-  const res = await fetch(`${API_BASE}/links`, { headers: authHeaders() });
-  if (res.status === 401) { logout(); return []; }
+  const res = await fetch(`${API_BASE}/links`);
   if (!res.ok) throw new Error('Failed to load links');
   return res.json() as Promise<LinkItem[]>;
 }
@@ -77,23 +80,23 @@ let currentSort: string = 'newest';
 let searchQuery: string = '';
 
 // --- DOM: App ---
-const appEl = document.getElementById('app') as HTMLElement;
 const cardsGrid = document.getElementById('cards-grid') as HTMLElement;
 const tagsFilterContainer = document.getElementById('tags-filter-container') as HTMLElement;
 const itemCount = document.getElementById('item-count') as HTMLElement;
 
-// Sidebar controls
 const searchInput = document.getElementById('search-input') as HTMLInputElement;
 const sortSelect = document.getElementById('sort-select') as HTMLSelectElement;
 const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
 const importInput = document.getElementById('import-input') as HTMLInputElement;
+const addBtn = document.getElementById('add-btn') as HTMLButtonElement;
+const adminControls = document.getElementById('admin-controls') as HTMLElement;
+const loginBtn = document.getElementById('login-btn') as HTMLButtonElement;
 const logoutBtn = document.getElementById('logout-btn') as HTMLButtonElement;
 
 // Modal elements
 const modal = document.getElementById('entry-modal') as HTMLElement;
 const modalTitle = document.getElementById('modal-title') as HTMLElement;
 const linkForm = document.getElementById('link-form') as HTMLFormElement;
-const addBtn = document.getElementById('add-btn') as HTMLButtonElement;
 const closeModalBtn = document.getElementById('close-modal') as HTMLButtonElement;
 const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const deleteBtn = document.getElementById('delete-btn') as HTMLButtonElement;
@@ -122,24 +125,35 @@ const loginError = document.getElementById('login-error') as HTMLElement;
 const loginUsername = document.getElementById('login-username') as HTMLInputElement;
 const loginPassword = document.getElementById('login-password') as HTMLInputElement;
 
-// --- Login / Logout ---
+// --- Auth UI ---
+function updateAdminUI() {
+  if (isAdmin()) {
+    adminControls.classList.remove('hidden');
+    loginBtn.classList.add('hidden');
+    logoutBtn.classList.remove('hidden');
+  } else {
+    adminControls.classList.add('hidden');
+    loginBtn.classList.remove('hidden');
+    logoutBtn.classList.add('hidden');
+  }
+  // Re-render cards to mostrare/nascondere pulsante edit
+  renderCards();
+}
+
 function showLogin() {
   loginOverlay.classList.remove('hidden');
-  appEl.classList.add('blurred');
 }
 
 function hideLogin() {
   loginOverlay.classList.add('hidden');
-  appEl.classList.remove('blurred');
   loginError.textContent = '';
   loginForm.reset();
 }
 
 function logout() {
   clearToken();
-  links = [];
-  renderCards();
-  showLogin();
+  hideLogin();
+  updateAdminUI();
 }
 
 async function handleLogin(e: Event) {
@@ -149,9 +163,7 @@ async function handleLogin(e: Event) {
     const token = await apiLogin(loginUsername.value, loginPassword.value);
     setToken(token);
     hideLogin();
-    await loadData();
-    renderCards();
-    renderTagsFilter();
+    updateAdminUI();
   } catch {
     loginError.textContent = 'Username o password errati';
   }
@@ -160,13 +172,10 @@ async function handleLogin(e: Event) {
 // --- Initialization ---
 async function init() {
   setupEventListeners();
-  if (!getToken()) {
-    showLogin();
-    return;
-  }
   await loadData();
   renderCards();
   renderTagsFilter();
+  updateAdminUI();
 }
 
 // --- Data ---
@@ -216,13 +225,7 @@ async function handleSave(e: Event) {
   }
 
   const newLink: LinkItem = {
-    id,
-    url,
-    title,
-    description,
-    notes,
-    tags,
-    imageUrl,
+    id, url, title, description, notes, tags, imageUrl,
     createdAt: existingLink ? existingLink.createdAt : Date.now(),
   };
 
@@ -288,7 +291,7 @@ function renderCards() {
   itemCount.textContent = `${items.length} cards`;
 
   if (items.length === 0) {
-    cardsGrid.innerHTML = `<div class="empty-state">Nessun link trovato. Aggiungine uno!</div>`;
+    cardsGrid.innerHTML = `<div class="empty-state">Nessun link trovato.</div>`;
     return;
   }
 
@@ -302,19 +305,21 @@ function renderCards() {
     card.innerHTML = `
       <img src="${item.imageUrl}" alt="Icon" class="card-img" onerror="this.src='https://via.placeholder.com/56/1e2130/ffffff?text=Icon'" />
       <div class="card-title" title="${item.title}">${item.title}</div>
-      <button class="card-edit-btn" title="Edit">&#9998;</button>
+      ${isAdmin() ? `<button class="card-edit-btn" title="Edit">&#9998;</button>` : ''}
     `;
 
     card.addEventListener('mouseenter', (e) => showTooltip(e, item));
     card.addEventListener('mouseleave', hideTooltip);
     card.addEventListener('mousemove', moveTooltip);
 
-    const editBtn = card.querySelector('.card-edit-btn');
-    editBtn?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openEditModal(item);
-    });
+    if (isAdmin()) {
+      const editBtn = card.querySelector('.card-edit-btn');
+      editBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openEditModal(item);
+      });
+    }
 
     cardsGrid.appendChild(card);
   });
@@ -450,12 +455,22 @@ async function importData(e: Event) {
 
 // --- Event Listeners ---
 function setupEventListeners() {
-  addBtn.addEventListener('click', openAddModal);
+  addBtn.addEventListener('click', () => {
+    if (!isAdmin()) { showLogin(); return; }
+    openAddModal();
+  });
+
   closeModalBtn.addEventListener('click', closeModalHandler);
   cancelBtn.addEventListener('click', closeModalHandler);
   linkForm.addEventListener('submit', handleSave);
   deleteBtn.addEventListener('click', handleDelete);
+
+  loginBtn.addEventListener('click', showLogin);
   logoutBtn.addEventListener('click', logout);
+
+  loginOverlay.addEventListener('click', (e) => {
+    if (e.target === loginOverlay) hideLogin();
+  });
 
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModalHandler();

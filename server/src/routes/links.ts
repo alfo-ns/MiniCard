@@ -1,12 +1,11 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import { db } from '../db.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
-router.use(authMiddleware);
-
-router.get('/', async (_req: AuthRequest, res: Response) => {
+// GET è pubblico
+router.get('/', async (_req: Request, res: Response) => {
   const result = await db.execute('SELECT * FROM links ORDER BY created_at DESC');
   const links = result.rows.map(row => ({
     id: row.id,
@@ -21,7 +20,7 @@ router.get('/', async (_req: AuthRequest, res: Response) => {
   res.json(links);
 });
 
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { id, url, title, description, notes, tags, imageUrl, createdAt } = req.body;
   await db.execute({
     sql: `INSERT INTO links (id, url, title, description, notes, tags, image_url, created_at)
@@ -34,7 +33,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   res.status(201).json({ id });
 });
 
-router.delete('/:id', async (req: AuthRequest, res: Response) => {
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
   await db.execute({ sql: 'DELETE FROM links WHERE id = ?', args: [req.params.id] });
   res.status(204).end();
 });

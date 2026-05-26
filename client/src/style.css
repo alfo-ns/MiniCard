@@ -621,9 +621,6 @@ input:checked+.slider:before {
   width: 100%;
 }
 
-/* Blur app when login is shown */
-#app.blurred {
-  filter: blur(4px);
-  pointer-events: none;
-  user-select: none;
+.sidebar-footer button {
+  width: 100%;
 }

@@ -11,11 +11,10 @@
   </head>
   <body>
 
-    <!-- Login Overlay -->
+    <!-- Login Modal -->
     <div id="login-overlay" class="login-overlay hidden">
       <div class="login-card">
-        <h2 class="login-title">MiniCard</h2>
-        <p class="login-subtitle">Accedi per continuare</p>
+        <h2 class="login-title">Admin Login</h2>
         <form id="login-form" autocomplete="on">
           <div class="form-group">
             <label for="login-username">Username</label>
@@ -43,10 +42,13 @@
           <input type="text" id="search-input" placeholder="Search links..." class="glass-input" />
         </div>
 
-        <div class="sidebar-section action-section">
-          <button id="export-btn" class="secondary-btn">Export Data</button>
-          <label for="import-input" id="import-btn" class="secondary-btn">Import Data</label>
-          <input type="file" id="import-input" accept=".json" style="display: none;" />
+        <!-- Visibili solo all'admin -->
+        <div id="admin-controls" class="hidden">
+          <div class="sidebar-section action-section">
+            <button id="export-btn" class="secondary-btn">Export Data</button>
+            <label for="import-input" class="secondary-btn">Import Data</label>
+            <input type="file" id="import-input" accept=".json" style="display: none;" />
+          </div>
         </div>
 
         <div class="sidebar-section">
@@ -60,14 +62,13 @@
         </div>
 
         <div class="sidebar-section">
-          <div class="section-header">
-            <h3>Tags Filter</h3>
-          </div>
+          <h3>Tags Filter</h3>
           <div id="tags-filter-container" class="tags-container"></div>
         </div>
 
         <div class="sidebar-footer">
-          <button id="logout-btn" class="secondary-btn logout-btn">Logout</button>
+          <button id="login-btn" class="secondary-btn">Admin Login</button>
+          <button id="logout-btn" class="secondary-btn hidden">Logout</button>
         </div>
       </aside>
 
@@ -80,7 +81,7 @@
         <div class="cards-grid" id="cards-grid"></div>
       </main>
 
-      <!-- Modal -->
+      <!-- Modal aggiunta/modifica -->
       <div id="entry-modal" class="modal-overlay hidden">
         <div class="modal">
           <div class="modal-header">
@@ -133,7 +134,7 @@
         </div>
       </div>
 
-      <!-- Custom Tooltip -->
+      <!-- Tooltip -->
       <div id="custom-tooltip" class="custom-tooltip hidden">
         <div class="tooltip-content">
           <h4 id="tt-title"></h4>
